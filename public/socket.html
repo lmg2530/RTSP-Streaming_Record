@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<title>GPIO Control</title>
+
+<body>
+    <h2>Control SENSOR</h2>
+
+    <p>전등
+      <button type="button" id="ledstate" onclick="LEDOn()" style="background-color:green;">  ON  </button>
+      <button type="button" id="ledstate" onclick="LEDOff()" style="background-color:red;">  OFF  </button>
+    </p>
+    <p>모션감지센서
+      <button type="button" id="pirstate" onclick="PIROn()" style="background-color:green;">  ON  </button>
+      <button type="button" id="pirstate" onclick="PIROff()" style="background-color:red;">  OFF  </button>
+    </p>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.3/socket.io.js"></script>
+    <script>
+        var socket = io.connect(); //load socket.io-client and connect to the host
+        //전등
+        function LEDOn() {
+            socket.emit("ledstate", 1);
+        }
+        function LEDOff() {
+            socket.emit("ledstate", 0);
+        }
+        //pir센서
+        function PIROn() {
+            socket.emit("pirstate", 1);
+        }
+        function PIROff() {
+            socket.emit("pirstate", 0);
+        }
+    </script>
+
+</html>
+</body>
+
+</html>

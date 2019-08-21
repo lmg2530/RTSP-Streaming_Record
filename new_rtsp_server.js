@@ -1,5 +1,8 @@
 var ws = require('ws');
 var fs = require('fs');
+var express = require('express');
+var app = express();
+var bodyParser = require("body-parser");
 
 var STREAM_SECRET = "temp123", //ffmpeg 연결시 필요한 비밀번호
 	STREAM_PORT =  8082, //ffmpeg 연결 포트
@@ -10,9 +13,15 @@ var STREAM_SECRET = "temp123", //ffmpeg 연결시 필요한 비밀번호
 var width = 1280, //해상도 지정 _ 카메라 컨트롤 요소 1
     height = 960;
 
-var connectNum = [], //클라이언트 접속 정보 배열
+var connectNum = [] //클라이언트 접속 정보 배열
 var socketServer = new (ws.Server)({port: WEBSOCKET_PORT}); //websocket Server Create
 
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({
+    extended : true
+}));
+app.use(express.static(__dirname + '/public'));
+app.listen(SOCKETSERVER);
 //SocketServer insert broadcast
 socketServer.broadcast = function(data, opts) {
     for( var i = 0; i < connectNum.length ;i++) {
