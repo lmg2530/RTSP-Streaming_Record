@@ -1,66 +1,67 @@
-const RtspServer = require('rtsp-streaming-server').default;
-var Recorder = require('rtsp-recorder');
-var GPIO =require('onoff').Gpio//GPIO NO, input setting
+var ws = require('ws');
+var fs = require('fs');
 
-var cam_GPIO_1 = new GPIO(4,"out"),
-cam_GPIO_2 = new GPIO(17,"out"),
-cam_GPIO_3 = new GPIO(18,"out"),
-cam_GPIO_4 = new GPIO(22,"out"),
-cam_GPIO_5 = new GPIO(23,"out"),
-cam_GPIO_6 = new GPIO(9,"out"),
-cam_GPIO_7 = new GPIO(25,"out");
+var STREAM_SECRET = "temp123", //ffmpeg 연결시 필요한 비밀번호
+	STREAM_PORT =  8082, //ffmpeg 연결 포트
+	WEBSOCKET_PORT = 8084, // 클라이언트 - 스트리밍 연결 (ws 연결 포트)
+    SOCKETSERVER = 3001, //Web && 소캣 포트
+    STREAM_FORMAT = process.argv[5] || 'binary'
 
-//ex) cam_GPIO_1.writeSync(1) input 1 signal
-// default setting in multi connect camera
-cam_GPIO_1.writeSync(0);//GPIO_4
-cam_GPIO_2.writeSync(1);//GPIO_17
-cam_GPIO_3.writeSync(1);//GPIO_18
-cam_GPIO_4.writeSync(1);//GPIO_22
-cam_GPIO_5.writeSync(1);//GPIO_23
-cam_GPIO_6.writeSync(1);//GPIO_9
-cam_GPIO_7.writeSync(1);//GPIO_25
+var width = 1280, //해상도 지정 _ 카메라 컨트롤 요소 1
+    height = 960;
 
+var connectNum = [], //클라이언트 접속 정보 배열
+var socketServer = new (ws.Server)({port: WEBSOCKET_PORT}); //websocket Server Create
 
-const server = new RtspServer({
-    serverPort: 5554, //ffmpeg 접속 포트 ex) ffmpeg -i <your_input>.mp4 -c:v copy -f rtsp rtsp://127.0.0.1:5554/stream1
-    clientPort: 6554,
-    rtpPortStart: 10000,
-    rtpPortCount: 10000
-});
- 
- 
-async function run(){
-    try {
-        await server.start();
-    } catch (e) {
-        console.error(e);
+//SocketServer insert broadcast
+socketServer.broadcast = function(data, opts) {
+    for( var i = 0; i < connectNum.length ;i++) {
+        if (connectNum[i].readyState) {
+                    connectNum[i].send(data, opts);
+        }
+        else {
+            console.log( 'Error: Client ('+i+') not connected.' );
+        }
     }
-}
-//select C camera
-function C_camera(){
-    what_CAM = "C";
-    cam_GPIO_1.writeSync(0);//GPIO_4
-    cam_GPIO_2.writeSync(1);//GPIO_17
-    cam_GPIO_3.writeSync(0);//GPIO_18
-}
+};
 
-C_camera();
-run();
-//-------------------------------------------------------------------
-var rec = new Recorder({
-    url: 'rtsp://127.0.0.1:5554/stream1', //url to rtsp stream
-    timeLimit: 60*50, //length of one video file (seconds)
-    folder: './', //path to video folder
-    prefix: 'vid-', //prefix for video files
-    movieWidth: 1280, //width of video
-    movieHeight: 720, //height of video
-    // maxDirSize: 1024*20, //max size of folder with videos (MB), when size of folder more than limit folder will be cleared
-    maxTryReconnect: 15 //max count for reconnects
- 
+socketServer.on('connection', function(socket) {
+    // Send magic bytes and video size to the newly connected socket //최초 1회 소캣 연결시 스트리밍 기본정보
+    // struct { char magic[4]; unsigned short width, height;}
+    var streamHeader = new Buffer.alloc(32); //버퍼 할당
+    streamHeader.write('jsmp'); //STREAM_MAGIC_BYTES = 'jsmp'; // Must be 4 bytes
+    streamHeader.writeUInt32BE(width, 4);
+    streamHeader.writeUInt32BE(height, 6);
+    socket.id = Math.floor(Math.random()*(10-1+1)) + 1; //난수 지정
+    connectNum.push(socket);
+    socket.send(streamHeader, {binary:true});
+
+    console.log( 'New WebSocket Connection ('+socketServer.clients.size+' total)' );
+    //console.log(socketServer.clients);
+    socket.on('close', function(code, message){ //해당 sokcet을 배열에서 뺴줘야한다. 
+        connectNum.splice(connectNum.indexOf(socket.id),1); // socket.id에 해당되는 요소 빼줌
+        console.log( 'Disconnected WebSocket ('+socketServer.clients.size+' total)' );
+    });
 });
- 
-//start recording
-rec.initialize();
- 
-//start stream to websocket, port 8001
-rec.wsStream(8001);
+  
+// HTTP Server to accept incomming MPEG Stream
+var streamServer = require('http').createServer( function(request, response) {
+    var params = request.url.substr(1).split('/');//접속경로 따져서 올바른 연결만 확인
+    if( params[0] == STREAM_SECRET ) {
+        // width = 1280;
+        // height = 960;        
+        console.log(
+            'Stream Connected: ' + request.socket.remoteAddress +':' + request.socket.remotePort + ' size: ' + width + 'x' + height);
+            request.on('data', function(date) {
+                socketServer.broadcast(date, {binary: true});
+            });
+    }else {
+        console.log('Failed Stream Connection: '+ request.socket.remoteAddress + request.socket.remotePort + ' - wrong secret.');
+        response.end();
+    }
+}).listen(STREAM_PORT);
+//app.listen(WEBPORT); //webserver
+    
+console.log('Listening for MPEG Stream on http://127.0.0.1:'+STREAM_PORT+'/<secret>/<width>/<height>');
+console.log('Awaiting WebSocket connections on ws://127.0.0.1:'+WEBSOCKET_PORT+'/');
+//console.log('Listening HTTP server on http://127.0.0.1:' + WEBPORT);
