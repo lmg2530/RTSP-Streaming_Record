@@ -6,7 +6,7 @@ var url1 = "/video",
     url2 = "/video_stop"
     url3 = "/pic"
 let options = {
-    uri: ip+port+url2,
+    uri: ip+port+url1,
     method: 'POST',
     body:{
         Camera:"C" //C A C-학생쪽 A-칠판쪽
