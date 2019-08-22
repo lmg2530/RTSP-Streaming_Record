@@ -1,0 +1,66 @@
+#!/usr/bin/env coffee
+
+{HandBrake} = require 'handbrake'
+
+cli = require 'cli'
+cli.setApp 'HandBrakeCLIBatch', '0.3.0'
+opt = cli.parse
+  input:  ['i', 'Input File', 'path']
+  output: ['o', 'Output File', 'path']
+
+hb = new HandBrake
+
+if opt.input
+  hb.setOpts i: opt.input
+
+if opt.output
+  hb.setOpts o: opt.output
+
+hb.setOpts
+  5: ''
+  O: ''
+  m: ''
+  2: ''
+  T: ''
+  4: ''
+  f: 'mp4'
+  e: 'x264'
+  r: 24
+  X: 1280
+  E: 'faac'
+  B: '128,128'
+  R: 'Auto,Auto'
+  6: 'dpl2,auto'
+  D: '0.0,0.0'
+  denoise: 'weak'
+  loose_anamorphic: ''
+
+hb.setX264
+  level: 31
+  bframes: 0
+  b_adapt: 2
+  cabac: 0
+  keyint: 250
+  min_keyint:25
+  rc_lookahead: 50
+  merange: 24
+  subq: 6
+  ref: 8
+  mixed_refs: 1
+  qcomp: 0.6
+  vbv_maxrate: 1500
+  vbv_bufsize: 2000
+  analyse: 'all'
+  threads: 0
+  me: 'umh'
+  no_fast_pskip: 1
+  deblock: '-2,-2'
+  no_dct_decimate: 1
+  non_deterministic:1
+  weightb: 0
+  '8x8dct': 0
+  cqm: 'flat'
+  aq_strength: 0
+  psy_rd: '0,0'
+
+hb.execute()
